@@ -1,6 +1,7 @@
 const jsonServer = require('json-server')
 const auth = require('json-server-auth')
 const multer  = require('multer')
+const validateOrder = require('./middlewares/orderValidation')
 const server = jsonServer.create()
 const router = jsonServer.router('db.json')
 const middlewares = jsonServer.defaults()
@@ -74,15 +75,37 @@ server.post("/products", (req, res, next) => {
   next()
 })
 
+// Add custom routes for orders
+server.post("/orders", auth, (req, res, next) => {
+    // Validate order data
+    if (!req.body.userId || !req.body.items || !req.body.total) {
+        return res.status(400).json({ error: "Missing required order fields" });
+    }
+
+    // Add timestamp
+    req.body.createdAt = new Date().toISOString();
+    
+    // Set initial status
+    req.body.status = "pending";
+
+    // Continue to JSON Server router
+    next();
+});
+
 const rules = auth.rewriter({
     users: 660,
-    products: 664
+    products: 664,
+    orders: 660  // Only authenticated users can access orders
 })
+server.use(validateOrder)
 server.use(rules)
 server.use(auth)
 
 // Use default router
 server.use(router)
-server.listen(4000, () => {
-  console.log('JSON Server is running')
+
+// Start server
+const port = process.env.PORT || 4000
+server.listen(port, () => {
+    console.log(`JSON Server with Auth is running on port ${port}`)
 })
